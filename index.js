@@ -36,7 +36,9 @@ const parseJsonData = async (parsedData) => {
         }
 
         const redis = require('redis');
-        const client = redis.createClient();
+        const client = redis.createClient({
+            url: process.env.REDIS_URL || 'redis://localhost:6379'
+        });
 
         client.on('error', (err) => {
             console.log("Error " + err);
@@ -84,9 +86,8 @@ const parseJsonData = async (parsedData) => {
  (async () => {
 
     try {
-        
-
-    const browserWSEndpoint = 'ws://127.0.0.1:2500/devtools/browser/3d333d0b-2fb8-4d11-b302-991ba28866f1';
+    const groupsToScan = process.argv[2].split(',');
+    const browserWSEndpoint =  process.env.WS_URL || 'ws://127.0.0.1:2500/devtools/browser/ec96b0ca-3d69-4306-9fa8-38430db8eaab';
     const browser = await puppeteer.connect({ browserWSEndpoint });
     const page = await browser.newPage();
   
@@ -98,7 +99,6 @@ const parseJsonData = async (parsedData) => {
     
     let activeElement = await page.evaluate(() => document.activeElement);
     if (chatSelector) {
-      const groupsToScan = ["הסעות מהמרכז לצפון 2","הסעות מהדרום למרכז 2"];  
       groupsToScan.forEach(async (groupToScan) => {
         await chatSelector.click();
         while(true){
