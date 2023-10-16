@@ -1,13 +1,18 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const AirTableHelper = require('./integrations/airtable/index.js');
+require('dotenv').config();
+
 async function delay(time) {
     return new Promise(function(resolve) { 
         setTimeout(resolve, time)
     });
  }
 
-const parseJsonData = async (parsedData) => {
+const parseJsonData = async (parsedData,groupName) => {
 
+    const helper = new AirTableHelper();
+    
     return new Promise(async(resolve, reject) => {
         const extractTimestamp = (text) => {
         
@@ -27,7 +32,7 @@ const parseJsonData = async (parsedData) => {
         const extractDetails = (text) => {
             
             const phoneStartIndex = text.indexOf('+');
-            const phone = text.substring(phoneStartIndex, phoneStartIndex+16);
+            const phone = text.substring(phoneStartIndex, phoneStartIndex+16).replace(' ','');
             const name = text.substring(0, phoneStartIndex-1);
             const message = text.substring(phoneStartIndex+16, text.length);
             return {phone, name, message};
@@ -51,6 +56,12 @@ const parseJsonData = async (parsedData) => {
                 if(hasKey != 1){
                     console.log('new user found' + preparedObject.phone);
                     //post data to api endpoint
+                    helper.createRecord('Tremp2',{
+                        "name":preparedObject.name,
+                        "phone":preparedObject.phone,
+                        "groupName":groupName,
+                    });
+
                     client.set(preparedObject.phone, 1);
                     client.expire(preparedObject.phone, 60*60*24);
                 } else {
@@ -98,8 +109,21 @@ const parseJsonData = async (parsedData) => {
     const chatSelector = await page.waitForSelector(SELECTOR_CHAT_FIRST, { timeout: 20000 }).catch(() => null);
     
     let activeElement = await page.evaluate(() => document.activeElement);
+    
     if (chatSelector) {
-      groupsToScan.forEach(async (groupToScan) => {
+      
+      const scanGroup = async (activeGroupIndex = 0) => {
+
+        const scanNextGroup = async () => {
+            activeGroupIndex++;
+            if(activeGroupIndex < groupsToScan.length-1){
+                await scanGroup(activeGroupIndex+1);
+            } else {
+                await scanGroup(0);
+            }
+        }
+
+        const groupToScan = groupsToScan[activeGroupIndex];
         await chatSelector.click();
         while(true){
             await page.keyboard.press('Tab');
@@ -115,6 +139,7 @@ const parseJsonData = async (parsedData) => {
         }
         //document.querySelectorAll('#pane-side [role=row]')[10].querySelector('[role=gridcell] span').innerText
         
+        let groupScanCounter = 0;
         let group_name = '';
         while(true){
             group_name = await page.evaluate(() => document.activeElement.querySelector('[role=gridcell] span')?.innerText || '');
@@ -123,6 +148,12 @@ const parseJsonData = async (parsedData) => {
                 console.log('reached here to break - found the group');
                 await page.keyboard.press('Enter');
                 break;
+                
+            }
+            groupScanCounter++;
+            if(groupScanCounter > 10){
+                console.log('reached here to break - group not found');
+                return await scanNextGroup();
                 
             }
             await page.keyboard.press('ArrowDown');
@@ -169,10 +200,14 @@ const parseJsonData = async (parsedData) => {
             return msgs;
         });
 
-        await parseJsonData(messages);
+        await parseJsonData(messages,group_name);
         console.log('done with group ' + group_name);
 
-    });
+        // after finish we start again endless loop
+        return await scanNextGroup();
+    
+    }
+    await scanGroup();
     // console.log(messages);
     // fs.writeFile(group_name + '.json', JSON.stringify(messages), (err) => {
     //     if (err) throw err;
