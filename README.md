@@ -7,4 +7,6 @@
 
 # another : node index.js 
 
+# node index.js -g="first_group,second_group" -t=log.txt -u=1
+
 

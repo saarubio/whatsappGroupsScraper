@@ -17,12 +17,18 @@ const parseArgs = () => {
     // -t text file name
     // -a airtable
     // -u unique users only (no duplicates)
+    // -h help
     const optionsFromArgs = {};
     const args = process.argv.slice(2);
     
     args.forEach((arg) => {
-        const splittedArg = arg.split('=');
-        optionsFromArgs[splittedArg[0].replace('-','')] = splittedArg[1];
+        // let's split only if possible to split
+        if(arg.indexOf('=') != -1){
+            const argSplit = arg.split('=');
+            optionsFromArgs[argSplit[0].replace('-','')] = argSplit[1];
+        } else {
+            optionsFromArgs[arg.replace('-','')] = true;
+        }
     });
     return optionsFromArgs;
 }
@@ -120,10 +126,20 @@ const parseJsonData = async (parsedData,groupName) => {
 
 
 
+
  (async () => {
 
     const DELAY_TIME = 1000;
     const args = parseArgs();
+    if(args.h) {
+        console.log('-g group1,group2,group3');
+        console.log('-t text file name');
+        console.log('-a airtable');
+        console.log('-u unique users only (no duplicates)');
+        console.log('-h help');
+        process.exit();
+        return;
+    }
     try {
         const groupsToScan = args.g.split(',');
         const browserWSEndpoint =  process.env.WS_URL || 'ws://127.0.0.1:2500/devtools/browser/ec96b0ca-3d69-4306-9fa8-38430db8eaab';
@@ -189,7 +205,7 @@ const parseJsonData = async (parsedData,groupName) => {
 
 
             const messages = await page.evaluate(async() => {
-                
+
                 const DELAY_TIME = 1000;
                 async function delay(time) {
                     return new Promise(function(resolve) { 
